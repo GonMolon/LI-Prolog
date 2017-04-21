@@ -102,32 +102,6 @@ printPiece(B) :-
 printPiece(B) :- write(B).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-/*
-
-%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%% show the solution. Here M contains the literals that are true in the model:
-
-displaySol(M) :- 
-	xCoord(X), nl,
-	yCoord(Y),
-	printCell(X, Y),
-	fail.
-displaySol(_).
-
-printCell(X, Y) :- member(fills-B-X-Y, M), !, write(B), printPiece(B).
-%printCell(_, _) :- H=1000, printPiece(H).
-
-printPiece(B) :-
-	write(B),
-	atom_length(B, L),
-	between(L, 2, _),
-	write(' '), fail.
-printPiece(B) :- write(B).
-%%%%%%%%%%%%%%%%%%%%%%%%%%%
-*/
-
-
-
 % Express that Var is equivalent to the conjunction of Lits:
 expressAnd( Var, Lits ):- negate(Var,NVar), member(Lit,Lits),  writeClause([ NVar, Lit ]), fail.
 expressAnd( Var, Lits ):- negateAll(Lits,NLits), writeClause([ Var | NLits ]),!.
