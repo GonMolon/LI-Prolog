@@ -65,12 +65,26 @@ available(G,H):- hour(H), gangster(G), \+blocked(G,H).
 writeClauses(K):- 
     initClauseGeneration,
     eachHourEachGangsterAtMostOneTask,
-    ...
-    true,!.
+    allTasksDone,
+    !.
 
 
-eachHourEachGangsterAtMostOneTask:- available(G,H), findall( does-G-T-H, task(T), Lits ), atMost(1, Lits ), fail.
+eachHourEachGangsterAtMostOneTask:- available(G,H), findall(does-G-T-H, task(T), Lits), atMost(1, Lits), fail.
 eachHourEachGangsterAtMostOneTask.
+
+
+allTasksDone :-
+    needed(T, H, N),
+    findall(does-G-T-H, available(G, H), Lits),
+    atLeast(N, Lits),
+    fail.
+allTasksDone.
+
+
+
+
+
+maxConsecutiveHours(M, K).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% DISPLAYSOL:
 
@@ -91,15 +105,10 @@ main:-  symbolicOutput(1), !, writeClauses(30), halt.   % print the clauses in s
 main:-
     write('Looking for initial plan allowing arbitrary consecutive hours (72h).'), nl,
     tell(clauses), writeClauses(72), told,     % generate the (numeric) SAT clauses and call the solver
-    tell(header),  writeHeader,  told,
-    numVars(N), numClauses(C), 
-    write('Generated '), write(C), write(' clauses over '), write(N), write(' variables. '),nl,
-    shell('cat header clauses > infile.cnf',_),
-    write('Launching picosat...'), nl,
-    shell('picosat -v -o model infile.cnf', Result),  % if sat: Result=10; if unsat: Result=20.
+    solve(Result),
     treatResult(Result,[]),!.
 
-treatResult(20,[]       ):- write('No solution exists.'), nl, halt.
+treatResult(20,[]):- write('No solution exists.'), nl, halt.
 treatResult(20,BestModel):- nl,nl,write('Optimal solution: '),nl, displaySol(BestModel), halt.
 treatResult(10,_):- %   shell('cat model',_),   
     see(model), symbolicModel(M), seen,  
@@ -108,14 +117,16 @@ treatResult(10,_):- %   shell('cat model',_),
     displaySol(M),
     K1 is K-1,
     tell(clauses), writeClauses(K1), told,
+    solve(Result),
+    treatResult(Result,M),!.
+    
+solve(Result):-
     tell(header),  writeHeader,  told,
     numVars(N),numClauses(C),
     write('Generated '), write(C), write(' clauses over '), write(N), write(' variables. '),nl,
     shell('cat header clauses > infile.cnf',_),
     write('Launching picosat...'), nl,
-    shell('picosat -v -o model infile.cnf', Result),  % if sat: Result=10; if unsat: Result=20.
-    treatResult(Result,M),!.
-    
+    shell('picosat -v -o model infile.cnf', Result).  % if sat: Result=10; if unsat: Result=20.
 
 initClauseGeneration:-  %initialize all info about variables and clauses:
     retractall(numClauses(   _)), 
@@ -167,12 +178,12 @@ exactly(K,Lits):- atLeast(K,Lits), atMost(K,Lits),!.
 
 atMost(K,Lits):-   % l1+...+ln <= k:  in all subsets of size k+1, at least one is false:
     negateAll(Lits,NLits), 
-    K1 is K+1,    subsetOfSize(K1,NLits,Clause), writeClause(Clause),fail.
+    K1 is K+1, subsetOfSize(K1,NLits,Clause), writeClause(Clause),fail.
 atMost(_,_).
 
 atLeast(K,Lits):-  % l1+...+ln >= k: in all subsets of size n-k+1, at least one is true:
     length(Lits,N),
-    K1 is N-K+1,  subsetOfSize(K1, Lits,Clause), writeClause(Clause),fail.
+    K1 is N-K+1, subsetOfSize(K1, Lits,Clause), writeClause(Clause),fail.
 atLeast(_,_).
 
 negateAll( [], [] ).
@@ -182,8 +193,8 @@ negate(\+Lit,  Lit):-!.
 negate(  Lit,\+Lit):-!.
 
 subsetOfSize(0,_,[]):-!.
-subsetOfSize(N,[X|L],[X|S]):- N1 is N-1, length(L,Leng), Leng>=N1, subsetOfSize(N1,L,S).
-subsetOfSize(N,[_|L],   S ):-            length(L,Leng), Leng>=N,  subsetOfSize( N,L,S).
+subsetOfSize(N,[X|L], [X|S]):- N1 is N-1, length(L,Leng), Leng>=N1, subsetOfSize(N1,L,S).
+subsetOfSize(N,[_|L], S):- length(L,Leng), Leng>=N,  subsetOfSize( N,L,S).
 
 % Express that Var is equivalent to the disjunction of Lits:
 expressOr( Var, Lits ):- member(Lit,Lits), negate(Lit,NLit), writeClause([ NLit, Var ]), fail.
