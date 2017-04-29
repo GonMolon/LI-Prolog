@@ -62,30 +62,88 @@ available(G,H):- hour(H), gangster(G), \+blocked(G,H).
 %   1. does-G-T-H means:  "gangster G does task T at hour H"     (MANDATORY)
 %   2. ...
 
-writeClauses(K):- 
+writeClauses(K) :- 
     initClauseGeneration,
     eachHourEachGangsterAtMostOneTask,
-    allTasksDone,
-    !.
+    noDifferentConsecutiveTasks,
+    %noBlockedHours,
+    allTasksDone, 
+    limitHours(K), !.
 
-
-eachHourEachGangsterAtMostOneTask:- available(G,H), findall(does-G-T-H, task(T), Lits), atMost(1, Lits), fail.
+eachHourEachGangsterAtMostOneTask :- 
+    available(G,H), 
+    findall(does-G-T-H, task(T), Lits), 
+    atMost(1, Lits), fail.
 eachHourEachGangsterAtMostOneTask.
 
+noDifferentConsecutiveTasks :-
+    available(G, H),
+    H_next is H+1,
+    H_next =< 72,
+    available(G, H_next),
+    task(T),
+    task(T_next),
+    T \= T_next,
+    Lits = [does-G-T-H, does-G-T_next-H_next],
+    negateAll(Lits, NLits),
+    writeClause(NLits), fail.
+noDifferentConsecutiveTasks.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TODO maybe this is not necessary %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+noBlockedHours :- % Not needed since we only create a "does" variable when G is not blocked.
+    blocked(G, H),
+    task(T),
+    negate(does-G-T-H, NLit),
+    writeClause([NLit]), fail.
+noBlockedHours.
 
 allTasksDone :-
     needed(T, H, N),
     findall(does-G-T-H, available(G, H), Lits),
-    atLeast(N, Lits),
-    fail.
+    atLeast(N, Lits), fail.
 allTasksDone.
 
+limitHours(K) :-
+    gangster(G),
+    findall(H, blocked(G, H), L),
+    Aux = [0|L],
+    append(Aux, [73], Intervals),
+    nth0(Pos, Intervals, H_init),
+    Next is Pos+1,
+    nth0(Next, Intervals, H_end),
+    H_end - H_init - 1 >= K,
+    limitInterval(G, H_init, H_end, Intervals, K), fail.
+limitHours(K).
 
+limitInterval(G, H_init, H_end, Intervals, K) :- 
+    task(T),
+    H_first is H_init + 1,
+    H_max is H_end - K,
+    between(H_first, H_max, H1),
+    H2 is H1+K,
+    findall(does-G-T-H, between(H1, H2, H), Lits),
+    negateAll(Lits, NLits),
+    atLeast(1, NLits), fail.
+limitInterval.
 
+maxConsecutiveHours(M, K) :-
+    between(0, 71, N),
+    K is 72-N,
+    gangster(G),
+    findall(H, member(does-G-_-H, M), Hours),
+    sort(Hours, SHours),
+    sublist(SHours, L),
+    length(L, K),
+    [H_init|_] = L,
+    last(L, H_end),
+    H_end is H_init + K - 1, !.
+maxConsecutiveHours(_, _).
 
-
-maxConsecutiveHours(M, K).
-
+sublist(L, R) :-
+    append(_, S, L),
+    append(R, _, S).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% DISPLAYSOL:
 
 displaySol(M):- nl,nl,
