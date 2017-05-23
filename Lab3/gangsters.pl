@@ -60,15 +60,25 @@ available(G,H):- hour(H), gangster(G), \+blocked(G,H).
 
 % We use (at least) the following types of symbolic propositional variables:
 %   1. does-G-T-H means:  "gangster G does task T at hour H"     (MANDATORY)
-%   2. ...
+%   2. works-G-H means: "gangster G works in some task at hour H"
 
-writeClauses(K) :- 
+writeClauses(K) :-
     initClauseGeneration,
+    %connectDoesWithWorks, %If there were more tasks, maybe this could optimize the number of clauses. In this case, it's better with just the var type "does"
     eachHourEachGangsterAtMostOneTask,
     noDifferentConsecutiveTasks,
-    %noBlockedHours,
     allTasksDone, 
     limitHours(K), !.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+connectDoesWithWorks :-
+    available(G, H),
+    findall(does-G-T-H, task(T), Lits), 
+    expressOr(works-G-H, Lits), fail.
+connectDoesWithWorks.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 eachHourEachGangsterAtMostOneTask :- 
     available(G,H), 
@@ -76,10 +86,12 @@ eachHourEachGangsterAtMostOneTask :-
     atMost(1, Lits), fail.
 eachHourEachGangsterAtMostOneTask.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 noDifferentConsecutiveTasks :-
     available(G, H),
     H_next is H+1,
-    H_next =< 72,
+    hour(H_next),
     available(G, H_next),
     task(T),
     task(T_next),
@@ -89,21 +101,15 @@ noDifferentConsecutiveTasks :-
     writeClause(NLits), fail.
 noDifferentConsecutiveTasks.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% TODO maybe this is not necessary %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-noBlockedHours :- % Not needed since we only create a "does" variable when G is not blocked.
-    blocked(G, H),
-    task(T),
-    negate(does-G-T-H, NLit),
-    writeClause([NLit]), fail.
-noBlockedHours.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 allTasksDone :-
     needed(T, H, N),
     findall(does-G-T-H, available(G, H), Lits),
     atLeast(N, Lits), fail.
 allTasksDone.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 limitHours(K) :-
     gangster(G),
@@ -114,19 +120,34 @@ limitHours(K) :-
     Next is Pos+1,
     nth0(Next, Intervals, H_end),
     H_end - H_init - 1 >= K,
-    limitInterval(G, H_init, H_end, Intervals, K), fail.
-limitHours(K).
+    limitInterval(G, H_init, H_end, K), fail.
+limitHours(_).
 
-limitInterval(G, H_init, H_end, Intervals, K) :- 
+limitInterval(G, H_init, H_end, K) :- 
     task(T),
     H_first is H_init + 1,
-    H_max is H_end - K,
+    H_max is H_end - K - 1,
     between(H_first, H_max, H1),
-    H2 is H1+K,
+    H2 is H1 + K,
     findall(does-G-T-H, between(H1, H2, H), Lits),
     negateAll(Lits, NLits),
     atLeast(1, NLits), fail.
-limitInterval.
+limitInterval(_, _, _, _).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+limitHoursSimple(K) :-
+    gangster(G),
+    task(T),
+    hour(H_init),
+    H_end is H_init + K,
+    hour(H_end),
+    findall(does-G-T-H, between(H_init, H_end, H), Lits),
+    negateAll(Lits, NLits),
+    atLeast(1, NLits), fail.
+limitHoursSimple(_).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 maxConsecutiveHours(M, K) :-
     between(0, 71, N),
@@ -139,7 +160,6 @@ maxConsecutiveHours(M, K) :-
     [H_init|_] = L,
     last(L, H_end),
     H_end is H_init + K - 1, !.
-maxConsecutiveHours(_, _).
 
 sublist(L, R) :-
     append(_, S, L),
