@@ -32,7 +32,6 @@ p :-
 	listVars(NVars, L), % generate a list of Prolog vars (their names do not matter)
 	L ins 0..1,
 	matrixByRows(L, NumCols, MatrixByRows),
-	write(MatrixByRows), nl, nl,
 	transpose(MatrixByRows, MatrixByColumns),
 	declareConstraints(Rowsums, MatrixByRows),
 	declareConstraints(ColSums, MatrixByColumns),
@@ -56,16 +55,11 @@ transpose2(M, T) :-
 	Condition = (between(1, Cols, Pos), findall(X, (member(Row, M), nth1(Pos, Row, X)), RowT)),
 	findall([RowT], Condition, T).
 
-declareConstraints(Sums, Mat) :-
-	length(Sums, Cols),
-	between(1, Cols, Pos),
-	nth1(Pos, Sums, Sum),
-	nth1(Pos, Mat, Row),
-	declareConstraint(Sum, Row).
-	
-declareConstraint(Sum, Row) :-
+declareConstraints([], []) :- !.
+declareConstraints([Sum|Sums], [Row|Rows]) :-
 	expressSum(Row, Expr),
-	write(Expr #= Sum), nl.
+	Expr #= Sum,
+	declareConstraints(Sums, Rows).
 	
 expressSum([V], V) :- !.
 expressSum([V|Values], V + Expr) :-
