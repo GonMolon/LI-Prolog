@@ -29,19 +29,14 @@ p :-
 	length(Rowsums, NumRows),
 	length(ColSums, NumCols),
 	NVars is NumRows * NumCols,
-	listVars(NVars, L), % generate a list of Prolog vars (their names do not matter)
-	L ins 0..1,
-	matrixByRows(L, NumCols, MatrixByRows),
+	length(Vars, NVars), % generate a list of Prolog vars (their names do not matter)
+	Vars ins 0..1,
+	matrixByRows(Vars, NumCols, MatrixByRows),
 	transpose(MatrixByRows, MatrixByColumns),
 	declareConstraints(Rowsums, MatrixByRows),
 	declareConstraints(ColSums, MatrixByColumns),
-	label(L),
+	label(Vars),
 	pretty_print(Rowsums, ColSums, MatrixByRows).
-
-listVars(0, []) :- !.
-listVars(NVars, [VAR|R]) :-
-	N is NVars-1,
-	listVars(N, R).
 
 matrixByRows(L, NumCols, [Row|Rows]) :-
 	append(Row, Rest, L),
